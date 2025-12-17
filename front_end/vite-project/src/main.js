@@ -12,6 +12,48 @@ const state = {
   currentView: 'home'
 }
 
+// --- API Configuration ---
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5001/api'
+
+// --- Persistence Helpers (Token only in localStorage) ---
+const saveToken = (token) => {
+  localStorage.setItem('cr_token', token)
+}
+
+const getToken = () => {
+  return localStorage.getItem('cr_token')
+}
+
+const clearToken = () => {
+  localStorage.removeItem('cr_token')
+}
+
+const loadState = async () => {
+  const token = getToken()
+  if (token) {
+    try {
+      const res = await fetch(`${API_BASE}/users/profile`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await res.json()
+      if (data.success) {
+        state.user = data.data
+        state.location = data.data.location
+        if (state.location) {
+          state.currentView = 'booking'
+        } else {
+          state.currentView = 'location'
+        }
+      } else {
+        clearToken()
+      }
+    } catch (e) {
+      clearToken()
+    }
+  }
+  render()
+}
+
 // --- Router/Navigation ---
 const navigate = (view) => {
   state.currentView = view
@@ -22,6 +64,9 @@ const navigate = (view) => {
 
 // 1. Home Page
 const renderHome = () => {
+  const userGreeting = state.user ? `<span style="color: var(--accent-orange);">Hi, ${state.user.name.split(' ')[0]}</span> <a href="#" onclick="window.logout()" class="btn-ghost">Logout</a>` : `<a href="#" onclick="window.navigate('signup')" class="btn-ghost">Sign Up</a>`
+  const getStartedTarget = state.user ? (state.location ? 'booking' : 'location') : 'signup'
+  
   return `
     <!-- Navigation -->
     <nav style="padding: 1.5rem 3rem; position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border-color);">
@@ -32,7 +77,7 @@ const renderHome = () => {
         <div class="flex items-center gap-lg">
           <a href="#" onclick="window.navigate('home')" class="btn-ghost">Home</a>
           <a href="#" onclick="window.navigate('about')" class="btn-ghost">About</a>
-          <a href="#" onclick="window.navigate('signup')" class="btn-ghost">Sign Up</a>
+          ${userGreeting}
           <button id="partner-btn" class="btn btn-primary" style="padding: 0.75rem 1.5rem;">
             ${state.partnered ? 'PARTNERED ✓' : 'PARTNER WITH US'}
           </button>
@@ -57,7 +102,7 @@ const renderHome = () => {
           </p>
           
           <div class="flex gap-md justify-center" style="flex-wrap: wrap;">
-            <button class="btn btn-primary" onclick="window.navigate('signup')">
+            <button class="btn btn-primary" onclick="window.navigate('${getStartedTarget}')">
               GET STARTED →
             </button>
             <button class="btn btn-outline" onclick="window.navigate('about')">
@@ -134,7 +179,7 @@ const renderHome = () => {
         <p style="color: var(--text-secondary); margin-bottom: 2rem; max-width: 500px; margin-left: auto; margin-right: auto;">
           Join 500+ companies already building stronger teams with ConnectRemote.
         </p>
-        <button class="btn btn-primary" onclick="window.navigate('signup')" style="padding: 1.25rem 3rem;">
+        <button class="btn btn-primary" onclick="window.navigate('${getStartedTarget}')" style="padding: 1.25rem 3rem;">
           START FREE TRIAL →
         </button>
       </div>
@@ -144,6 +189,8 @@ const renderHome = () => {
 
 // 1.5. About / Learn More Page
 const renderAbout = () => {
+  const getStartedTarget = state.user ? (state.location ? 'booking' : 'location') : 'signup'
+  
   return `
     <div style="min-height: 100vh; padding: 8rem 2rem;">
       <div class="container animate-fade-in" style="max-width: 900px; margin: 0 auto;">
@@ -183,7 +230,7 @@ const renderAbout = () => {
         </div>
         
         <div class="flex justify-center gap-md">
-          <button class="btn btn-primary" onclick="window.navigate('signup')">JOIN THE REVOLUTION →</button>
+          <button class="btn btn-primary" onclick="window.navigate('${getStartedTarget}')">JOIN THE REVOLUTION →</button>
           <button class="btn btn-outline" onclick="window.navigate('home')">← BACK HOME</button>
         </div>
       </div>
@@ -438,7 +485,7 @@ const renderSuccess = () => {
     <div class="card" style="margin-top: 2rem; text-align: left; max-width: 400px;">
       <h4 style="margin-bottom: 1rem; color: var(--accent-orange); font-family: var(--font-display);">📋 APPOINTMENT DETAILS</h4>
       <p style="margin-bottom: 0.5rem; color: var(--text-secondary);"><strong style="color: var(--text-primary);">Company:</strong> ${state.appointment.companyName}</p>
-      <p style="margin-bottom: 0.5rem; color: var(--text-secondary);"><strong style="color: var(--text-primary);">Date:</strong> ${state.appointment.date}</p>
+      <p style="margin-bottom: 0.5rem; color: var(--text-secondary);"><strong style="color: var(--text-primary);">Date:</strong> ${state.appointment.date || state.appointment.bookingDate}</p>
       <p style="margin-bottom: 0.5rem; color: var(--text-secondary);"><strong style="color: var(--text-primary);">Time:</strong> ${state.appointment.timeSlot}</p>
       <p style="color: var(--text-secondary);"><strong style="color: var(--text-primary);">Event:</strong> ${state.appointment.eventType}</p>
     </div>
@@ -496,23 +543,59 @@ const setupEventListeners = () => {
   // Signup Form
   const signupForm = document.getElementById('signup-form')
   if (signupForm) {
-    signupForm.addEventListener('submit', (e) => {
+    signupForm.addEventListener('submit', async (e) => {
       e.preventDefault()
-      // Simulate signup
       const formData = new FormData(signupForm)
-      state.user = Object.fromEntries(formData)
-      navigate('location')
+      const payload = Object.fromEntries(formData)
+      
+      try {
+        const res = await fetch(`${API_BASE}/users/signup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        const data = await res.json()
+        if (data.success) {
+          saveToken(data.data.token)
+          state.user = data.data
+          navigate('location')
+        } else {
+          alert(data.message || 'Signup failed')
+        }
+      } catch (err) {
+        alert('Error connecting to server')
+      }
     })
   }
 
   // Location Form
   const locForm = document.getElementById('location-form')
   if (locForm) {
-    locForm.addEventListener('submit', (e) => {
+    locForm.addEventListener('submit', async (e) => {
       e.preventDefault()
       const formData = new FormData(locForm)
-      state.location = formData.get('location')
-      navigate('booking')
+      const location = formData.get('location')
+      
+      try {
+        const res = await fetch(`${API_BASE}/users/location`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getToken()}`
+          },
+          body: JSON.stringify({ location })
+        })
+        const data = await res.json()
+        if (data.success) {
+          state.user = data.data
+          state.location = data.data.location
+          navigate('booking')
+        } else {
+          alert(data.message || 'Failed to update location')
+        }
+      } catch (err) {
+        alert('Error connecting to server')
+      }
     })
   }
 
@@ -532,8 +615,8 @@ const setupEventListeners = () => {
           // Add selected style
           const selectedCard = radio.nextElementSibling
           if (selectedCard) {
-            selectedCard.style.borderColor = 'var(--primary-color)'
-            selectedCard.style.background = 'rgba(0, 188, 212, 0.1)'
+            selectedCard.style.borderColor = 'var(--accent-orange)'
+            selectedCard.style.background = 'rgba(255, 107, 53, 0.1)'
           }
         })
       })
@@ -541,18 +624,39 @@ const setupEventListeners = () => {
     setupCardSelection('date-grid')
     setupCardSelection('time-grid')
 
-    appointmentForm.addEventListener('submit', (e) => {
+    appointmentForm.addEventListener('submit', async (e) => {
       e.preventDefault()
       const formData = new FormData(appointmentForm)
-      state.appointment = {
+      const bookingPayload = {
         companyName: formData.get('companyName'),
         companySize: formData.get('companySize'),
         eventType: formData.get('eventType'),
         date: formData.get('date'),
         timeSlot: formData.get('timeSlot'),
-        notes: formData.get('notes')
+        notes: formData.get('notes'),
+        location: state.location,
+        serviceType: state.serviceType
       }
-      navigate('success')
+      
+      try {
+        const res = await fetch(`${API_BASE}/bookings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${getToken()}`
+          },
+          body: JSON.stringify(bookingPayload)
+        })
+        const data = await res.json()
+        if (data.success) {
+          state.appointment = data.data
+          navigate('success')
+        } else {
+          alert(data.message || 'Booking failed')
+        }
+      } catch (err) {
+        alert('Error connecting to server')
+      }
     })
   }
 }
@@ -567,6 +671,13 @@ window.handleServiceSelect = (type) => {
     navigate('success')
   }
 }
+window.logout = () => {
+    clearToken()
+    state.user = null
+    state.location = null
+    state.appointment = null
+    navigate('home')
+}
 
 // Initial Render
-render()
+loadState()
