@@ -45,14 +45,42 @@ const renderHome = () => {
       
       <div class="flex gap-md justify-center">
         <button class="btn btn-primary" onclick="window.navigate('signup')">Get Started</button>
-        <button class="btn btn-outline" onclick="window.navigate('signup')">Learn More</button>
+        <button class="btn btn-outline" onclick="window.navigate('about')">Learn More</button>
       </div>
     </main>
     
     <footer class="text-center" style="padding: 4rem 0; color: var(--text-muted); font-size: 0.875rem;">
-      © 2024 ConnectRemote Inc. Building better bonds.
+      <!-- Credits removed -->
     </footer>
   `
+}
+
+// 1.5. About / Learn More Page
+const renderAbout = () => {
+  return `
+      <div class="container flex justify-center items-center" style="min-height: 100vh;">
+        <div class="card animate-fade-in" style="width: 100%; max-width: 800px;">
+          <h2 class="text-center" style="margin-bottom: 2rem; font-size: 2.5rem; color: var(--primary-color);">About Us</h2>
+          
+          <div class="text-center" style="margin-bottom: 2rem;">
+            <p style="font-size: 1.125rem; margin-bottom: 1rem;">
+              <strong>ConnectRemote</strong> is dedicated to solving the isolation crisis in distributed teams.
+            </p>
+            <p style="color: var(--text-muted); margin-bottom: 1rem;">
+              We believe that while work can happen anywhere, human connection requires intention. Our platform seamlessly bridges the physical and digital divide by coordinating onsite meetups and high-fidelity virtual bonding sessions.
+            </p>
+             <p style="color: var(--text-muted);">
+              Whether you are a fully remote startup or a hybrid enterprise, we help your employees feel seen, heard, and connected.
+            </p>
+          </div>
+  
+          <div class="flex justify-center gap-md">
+             <button class="btn btn-primary" onclick="window.navigate('signup')">Join the Revolution</button>
+             <button class="btn btn-outline" onclick="window.navigate('home')">Back to Home</button>
+          </div>
+        </div>
+      </div>
+    `
 }
 
 // 2. Signup Page
@@ -145,7 +173,7 @@ const renderBooking = () => {
 
 // 5. Success
 const renderSuccess = () => {
-   return `
+  return `
     <div class="container flex justify-center items-center" style="min-height: 100vh; text-align: center;">
       <div class="animate-fade-in">
         <h1 style="font-size: 3rem; color: var(--primary-color); margin-bottom: 1rem;">All Set! 🎉</h1>
@@ -164,6 +192,7 @@ const render = () => {
   let html = ''
   switch (state.currentView) {
     case 'home': html = renderHome(); break;
+    case 'about': html = renderAbout(); break;
     case 'signup': html = renderSignup(); break;
     case 'location': html = renderLocation(); break;
     case 'booking': html = renderBooking(); break;
